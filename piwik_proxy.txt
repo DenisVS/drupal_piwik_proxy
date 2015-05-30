@@ -1,0 +1,23 @@
+
+dependencies:
+
+ajaxblocks
+captcha 
+
+
+Administration » Structure » Blocks 
+
+View comments
+Add comment
+
+Pages
+Only the listed pages 
+node/*
+
+AJAX settings
+
+Load block via AJAX  Yes
+Load the block on cached pages for these roles only  All
+Load the block on uncached pages for these roles only All
+
+
