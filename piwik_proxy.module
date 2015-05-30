@@ -6,7 +6,7 @@
  * Module file for Piwik proxy module
  * $Id$
  * 
- */ 
+ */
 
 /**
  * Implements hook_menu().
@@ -35,16 +35,14 @@ function piwik_proxy_form($form, &$form_state) {
     '#required' => TRUE,
     '#default_value' => variable_get('piwikProxySiteID'), //дёргаем системную переменную
   );
-  
 
-  
-  $form['piwikProxyPiwikUrl'] = array(
+  $form['piwikProxyUrl'] = array(
     '#type' => 'textfield',
     '#title' => t('Piwik URL'),
     '#size' => 50,
     '#maxlength' => 50,
     '#required' => TRUE,
-    '#default_value' => variable_get('piwikProxyPiwikUrl'),
+    '#default_value' => variable_get('piwikProxyUrl'),
   );
 
   $form['piwikProxyTokenAuth'] = array(
@@ -55,15 +53,28 @@ function piwik_proxy_form($form, &$form_state) {
     '#required' => TRUE,
     '#default_value' => variable_get('piwikProxyTokenAuth'),
   );
-
-  return system_settings_form($form);
+  $form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Save settings'),
+    //'#submit' => TRUE,
+	);
+  //return system_settings_form($form);
+  return $form; //Важно! Отправлять всё, а не system_settings_form, чтобы form_submit работало!
 }
 
-    /// @ Выше OK
 /**
- * Implements hook_form_validate().
- * 
+ * Save configuration settings
+ * @param array $form 
+ * @param array $form_state
  */
+function piwik_proxy_form_submit($form, &$form_state) {
+  variable_set('piwikProxySiteID',  $form['piwikProxySiteID']['#value']);
+  variable_set('piwikProxyTokenAuth',  $form['piwikProxyTokenAuth']['#value']);
+  variable_set('piwikProxyUrl',  preg_replace('%(.*//)(.*)%', '$2', $form['piwikProxyUrl']['#value']));
+}
+
+/// @ Выше OK
+
 // Ниже настраиваем блоки -----------------------------------------
 /**
  * Implements hook_block_info().
