@@ -1,3 +1,4 @@
+; $Id$
 name = Piwik proxy module
 description = This script allows to track websites with Piwik without revealing the Piwik server URL.
 core = 7.x

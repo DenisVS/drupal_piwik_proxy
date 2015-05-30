@@ -1,10 +1,13 @@
 <?php
 
 /**
+ * Это рабочий пример модуля. Страница настроек в админке, и блок для вывода формы
  * @file
  * Module file for Piwik proxy module
- */
-// Это рабочий пример модуля. Страница настроек в админке, и блок для вывода формы
+ * $Id$
+ * 
+ */ 
+
 /**
  * Implements hook_menu().
  */
@@ -30,65 +33,33 @@ function piwik_proxy_form($form, &$form_state) {
     '#size' => 3,
     '#maxlength' => 3,
     '#required' => TRUE,
-    '#default_value' => variable_get('piwikProxySiteID', 1), //дёргаем системную переменную
+    '#default_value' => variable_get('piwikProxySiteID'), //дёргаем системную переменную
   );
   
-  /// @ Выше OK
+
   
-  $form['fluxbbCommentsTopicLenght'] = array(
+  $form['piwikProxyPiwikUrl'] = array(
     '#type' => 'textfield',
-    '#title' => t('Topic lenght in comments'),
-    '#size' => 2,
-    '#maxlength' => 2,
-    '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsTopicLenght', 5),
-  );
-  $form['fluxbbCommentsPathToForum'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Path to forum'),
+    '#title' => t('Piwik URL'),
     '#size' => 50,
     '#maxlength' => 50,
     '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsPathToForum', 'forum'),
+    '#default_value' => variable_get('piwikProxyPiwikUrl'),
   );
 
-  $form['fluxbbCommentsDbHost'] = array(
+  $form['piwikProxyTokenAuth'] = array(
     '#type' => 'textfield',
-    '#title' => t('Forum\'s DB host'),
-    '#size' => 20,
-    '#maxlength' => 20,
+    '#title' => t('Token auth'),
+    '#size' => 50,
+    '#maxlength' => 50,
     '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsDbHost', 'localhost'),
+    '#default_value' => variable_get('piwikProxyTokenAuth'),
   );
 
-  $form['fluxbbCommentsDb'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Forum\'s DB'),
-    '#size' => 20,
-    '#maxlength' => 20,
-    '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsDb'),
-  );
-  $form['fluxbbCommentsDbUser'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Forum\'s DB user'),
-    '#size' => 20,
-    '#maxlength' => 20,
-    '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsDbUser'),
-  );
-
-  $form['fluxbbCommentsDbPass'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Forum\'s DB pass'),
-    '#size' => 20,
-    '#maxlength' => 20,
-    '#required' => TRUE,
-    '#default_value' => variable_get('fluxbbCommentsDbPass'),
-  );
   return system_settings_form($form);
 }
 
+    /// @ Выше OK
 /**
  * Implements hook_form_validate().
  * 
@@ -115,16 +86,16 @@ function viewtopic() {
   $htmlContent = '';  //содержимое для вывода
   $nid = arg(1);
   $node = node_load($nid);
-  $forum_id = variable_get('fluxbbCommentsForumId');
-  $topicLenght = variable_get('fluxbbCommentsTopicLenght', 5);
+  $forum_id = variable_get('piwikProxyForumId');
+  $topicLenght = variable_get('piwikProxyTopicLenght', 5);
   //*   
   // Соединяемся с сервером MySQL
-  $connect = @mysql_connect(variable_get('fluxbbCommentsDbHost'), variable_get('fluxbbCommentsDbUser'), variable_get('fluxbbCommentsDbPass'));
+  $connect = @mysql_connect(variable_get('piwikProxyDbHost'), variable_get('piwikProxyDbUser'), variable_get('piwikProxyDbPass'));
   if (!$connect) {   // Проверяем создано ли соединение с сервером MySQL
     return 0;
   }
   // Проверяем правильно выбрана ли база данных, существует ли она.
-  if (!@mysql_select_db(variable_get('fluxbbCommentsDb'), $connect)) {
+  if (!@mysql_select_db(variable_get('piwikProxyDb'), $connect)) {
     return 0;
   }
   mysql_query("SET NAMES utf8");
@@ -162,7 +133,7 @@ function viewtopic() {
       }
     }
     if ($forum != $forum_id) { //если текущий форум не равен начальному (скрытому)
-      $linkToForum = variable_get('fluxbbCommentsPathToForum', 'http://localhost/forum') . '/viewtopic.php?id=' . $topic; //ссылка на топик в форуме
+      $linkToForum = variable_get('piwikProxyPathToForum', 'http://localhost/forum') . '/viewtopic.php?id=' . $topic; //ссылка на топик в форуме
       $htmlContent.= '<u><a href="' . $linkToForum . '">' . t("Читать обсуждение полностью...") . '</a></u><br/><br/><hr><br/>';
     }
   }
@@ -234,16 +205,16 @@ function piwik_proxy_submitcomment_form_submit($form, &$form_state) {
 
   $poster = $form['poster']['#value'];
   $message = $form['message']['#value'];
-  $forum_id = variable_get('fluxbbCommentsForumId');
+  $forum_id = variable_get('piwikProxyForumId');
 
 //*   
   // Соединяемся с сервером MySQL
-  $connect = @mysql_connect(variable_get('fluxbbCommentsDbHost'), variable_get('fluxbbCommentsDbUser'), variable_get('fluxbbCommentsDbPass'));
+  $connect = @mysql_connect(variable_get('piwikProxyDbHost'), variable_get('piwikProxyDbUser'), variable_get('piwikProxyDbPass'));
   if (!$connect) {   // Проверяем создано ли соединение с сервером MySQL
     return 0;
   }
   // Проверяем правильно выбрана ли база данных, существует ли она.
-  if (!@mysql_select_db(variable_get('fluxbbCommentsDb'), $connect)) {
+  if (!@mysql_select_db(variable_get('piwikProxyDb'), $connect)) {
     return 0;
   }
   mysql_query("SET NAMES utf8");
