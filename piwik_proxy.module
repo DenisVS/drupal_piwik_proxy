@@ -1,11 +1,12 @@
 <?php
 
 /**
- * Это рабочий пример модуля. Страница настроек в админке, и блок для вывода формы
+ * Страница настроек в админке, и блок для вывода формы
  * @file
  * Module file for Piwik proxy module
+ * @TODO Сделать загрузку зависимостей из git.
+ * @todo Облагородить код, написать комментарии.
  * $Id$
- * 
  */
 
 /**
@@ -36,13 +37,13 @@ function piwik_proxy_form($form, &$form_state) {
     '#default_value' => variable_get('piwikProxySiteID'), //дёргаем системную переменную
   );
 
-  $form['piwikProxyUrl'] = array(
+  $form['piwikUrl'] = array(
     '#type' => 'textfield',
     '#title' => t('Piwik URL'),
     '#size' => 50,
     '#maxlength' => 50,
     '#required' => TRUE,
-    '#default_value' => variable_get('piwikProxyUrl'),
+    '#default_value' => variable_get('piwikUrl'),
   );
 
   $form['piwikProxyTokenAuth'] = array(
@@ -54,230 +55,72 @@ function piwik_proxy_form($form, &$form_state) {
     '#default_value' => variable_get('piwikProxyTokenAuth'),
   );
   $form['submit'] = array(
-		'#type' => 'submit',
-		'#value' => t('Save settings'),
-    //'#submit' => TRUE,
-	);
+    '#type' => 'submit',
+    '#value' => t('Save settings'),
+      //'#submit' => TRUE,
+  );
   //return system_settings_form($form);
-  return $form; //Важно! Отправлять всё, а не system_settings_form, чтобы form_submit работало!
+  return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
+  //чтобы произошёл вызов piwik_proxy_form_submit($form, &$form_state)!
 }
 
 /**
- * Save configuration settings
- * @param array $form 
+ * Функция сабмита формы. Выполняется вычисление и занесение переменных помимо формы.
+ * Пишется конфигурационный файл.
+ * @param array $form
  * @param array $form_state
  */
 function piwik_proxy_form_submit($form, &$form_state) {
-  variable_set('piwikProxySiteID',  $form['piwikProxySiteID']['#value']);
-  variable_set('piwikProxyTokenAuth',  $form['piwikProxyTokenAuth']['#value']);
-  variable_set('piwikProxyUrl',  preg_replace('%(.*//)(.*)%', '$2', $form['piwikProxyUrl']['#value']));
+  variable_set('piwikProxySiteID', $form['piwikProxySiteID']['#value']);
+  variable_set('piwikProxyTokenAuth', $form['piwikProxyTokenAuth']['#value']);
+  variable_set('piwikUrl', $form['piwikUrl']['#value']);
+
+  $file = DRUPAL_ROOT . '/sites/all/libraries/piwik/config.php';
+  $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
+  fwrite($targetFile, "\$PIWIK_URL = '" . variable_get('piwikUrl') . "';\n"); //выводим в файл
+  fwrite($targetFile, "\$TOKEN_AUTH = '" . variable_get('piwikProxyTokenAuth') . "';\n"); //выводим в файл
+  fwrite($targetFile, '$timeout = 5,' . "\n"); //выводим в файл
+  fclose($targetFile); //закрываем
+  //Получаем из настроек переменные
+  $siteID = variable_get('piwikProxySiteID');
+  $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik/piwik.php';
+  $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+
+  $htmlContent = '<script type="text/javascript">' . "\n";
+  $htmlContent .= 'var _paq = _paq || [];' . "\n";
+  $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
+  $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
+  $htmlContent .= '  (function() {' . "\n";
+  $htmlContent .= '   var u="//' . $proxyUrl . '";' . "\n";
+  $htmlContent .= "   _paq.push(['setTrackerUrl', u+'piwik.php']);" . "\n";
+  $htmlContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
+  $htmlContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+  $htmlContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
+  $htmlContent .= '  })();' . "\n";
+  $htmlContent .= '</script>' . "\n";
+  variable_set('piwikProxyCode', $htmlContent);
 }
 
-/// @ Выше OK
-
-// Ниже настраиваем блоки -----------------------------------------
 /**
+ * Функция настройки блока
  * Implements hook_block_info().
  */
 function piwik_proxy_block_info() {
-  $blocks['submitComment'] = array(
-    'info' => t('Add comment'), //название блока
-//    'cache' => DRUPAL_CACHE_GLOBAL, //Режим кэша
-    'cache' => DRUPAL_NO_CACHE, //Режим кэша
-  );
   $blocks['commentsView'] = array(
-    'info' => t('View comments'), //название блока
+    'info' => t('Piwik proxy code'), //название блока в admin/structure/blocks
 //    'cache' => DRUPAL_CACHE_GLOBAL, //Режим кэша
     'cache' => DRUPAL_NO_CACHE, //Режим кэша
   );
   return $blocks;
 }
 
-function viewtopic() {
-  $htmlContent = '';  //содержимое для вывода
-  $nid = arg(1);
-  $node = node_load($nid);
-  $forum_id = variable_get('piwikProxyForumId');
-  $topicLenght = variable_get('piwikProxyTopicLenght', 5);
-  //*   
-  // Соединяемся с сервером MySQL
-  $connect = @mysql_connect(variable_get('piwikProxyDbHost'), variable_get('piwikProxyDbUser'), variable_get('piwikProxyDbPass'));
-  if (!$connect) {   // Проверяем создано ли соединение с сервером MySQL
-    return 0;
-  }
-  // Проверяем правильно выбрана ли база данных, существует ли она.
-  if (!@mysql_select_db(variable_get('piwikProxyDb'), $connect)) {
-    return 0;
-  }
-  mysql_query("SET NAMES utf8");
-  //  -------------------------- SELECT TOPIC -------------------                  
-  //запрос=выбрать id, forum_id из таблицы topics где comments_nid=$current_url
-  $result = mysql_query("SELECT id, forum_id FROM topics WHERE comments_nid='" . $nid . "'");
-  $resPresent = mysql_num_rows($result);  //Проверяем, удачно ли сделан запрос
-  if ($resPresent != 0) {
-
-    $row = mysql_fetch_array($result); //дергаем строку
-    $topic = $row['id'];
-    $forum = $row['forum_id'];
-    //  -------------------------- /SELECT TOPIC -------------------  
-    //выбрать poster таблицы posts где topic_id = $topic
-    $result = mysql_query("SELECT poster, message FROM posts WHERE topic_id=" . $topic);
-    $numberResultPosts = MYSQL_NUMROWS($result); //сколько постов?
-    if (!$result) { // Проверяем удачно ли выполнен запрос
-    }
-    $countPosts = 0; //сбрасываем счётчик постов
-    // Делаем обход массива и вывод на монитор данных из таблиц test
-    while ($row = mysql_fetch_array($result)) {
-      $countPosts = $countPosts + 1;
-      if ($countPosts > ($numberResultPosts - $topicLenght )) { //показываем только хвост длиной $topicLenght
-        //$a['message'] = preg_replace("#\n#", "<br/>", $a['message']); //меняем прервод строки на HTML
-        $row['message'] = str_replace("\n", "<br/>", $row['message']); //меняем прервод строки на HTML
-        $row['message'] = preg_replace('#\[b\](.*)\[/b\]#U', "<b>$1</b>", $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[u\](.*)\[/u\]#U', "<u>$1</u>", $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[img\](.*)\[/img\]#U', '<img src="$1"></img>', $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[quote(.*)\](.*)\[/quote\]#U', '<i>$2</i>', $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[color(.*)\](.*)\[/color\]#U', '<i>$2</i>', $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[i\](.*)\[/i\]#U', '<i>$1</i>', $row['message']); //меняем BBCode на HTML
-        $row['message'] = preg_replace('#\[url(.*)\](.*)\[/url\]#U', '<a>$2</a>', $row['message']); //меняем BBCode на HTML
-
-        $htmlContent.= "<u><b>" . $row['poster'] . "</b></u><br/>" . $row['message'] . "<br><hr><br>"; //выводим на печать пост
-      }
-    }
-    if ($forum != $forum_id) { //если текущий форум не равен начальному (скрытому)
-      $linkToForum = variable_get('piwikProxyPathToForum', 'http://localhost/forum') . '/viewtopic.php?id=' . $topic; //ссылка на топик в форуме
-      $htmlContent.= '<u><a href="' . $linkToForum . '">' . t("Читать обсуждение полностью...") . '</a></u><br/><br/><hr><br/>';
-    }
-  }
-  mysql_close($connect);
-  return $htmlContent;
-}
-
-// Ниже рисуем блоки -----------------------------------------
 /**
- * Implements hook_block_view().
+ * Функция отображения блока
+ * @return array Содержимое блока
  */
-function piwik_proxy_block_view($delta = '') {
+function piwik_proxy_block_view() {
   $block = array();
-  switch ($delta) {
-    case 'commentsView':
-      $block['subject'] = t('Comments'); //Заголовок блока
-      $block['content'] = viewtopic();
-      break;
-    case 'submitComment':
-      $block['subject'] = t('Add Comment'); //Заголовок блока
-      $block['content'] = drupal_get_form('piwik_proxy_submitcomment_form'); //форму в блок
-      break;
-  }
+  //$block['subject'] = t('Piwik Proxy code'); //Заголовок блока
+  $block['content'] = variable_get('piwikProxyCode');
   return $block;
-}
-
-// Конструируем форму function (hook_form_BASE_FORM_ID_alter, чтобы отличить от админской)
-function piwik_proxy_submitcomment_form($form, &$form_state) {
-  $form['poster'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Your name:'),
-    '#maxlength' => 17,
-    '#size' => 17,
-    '#required' => TRUE,
-  );
-  $form['message'] = array(
-    '#type' => 'textarea',
-    '#title' => t('Your message:'),
-    '#required' => TRUE,
-    '#rows' => 5,
-  );
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Post comment'),
-  );
-
-  return $form;
-}
-
-function piwik_proxy_submitcomment_form_validate($form, &$form_state) {
-  
-}
-
-function piwik_proxy_submitcomment_form_submit($form, &$form_state) {
-  $nid = arg(1);
-  $node = node_load($nid);
-  $subject = $node->title;
-  $posted = time(); //текущая дата UnixTime
-
-  setlocale(LC_ALL, "ru_RU.UTF-8");
-  $form['poster']['#value'] = trim($form['poster']['#value']);
-  $form['poster']['#value'] = preg_replace('/[^A-Za-zЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮЁйцукенгшщзхъфывапролджэячсмитьбюё\-\s\d!]*/', '', $form['poster']['#value']);
-
-  $form['poster']['#value'] = preg_replace("/\s+/", " ", $form['poster']['#value']); //удаляем повторяющиеся пробелы  
-
-  $form['message']['#value'] = trim($form['message']['#value']);
-  $form['message']['#value'] = preg_replace('/[^A-Za-zЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮЁйцукенгшщзхъфывапролджэячсмитьбюё\-\s\d!\@\#\$\%\*\№\?]*/', '$1', $form['message']['#value']);
-  $form['message']['#value'] = preg_replace("/\s+/", " ", $form['message']['#value']); //удаляем повторяющиеся пробелы
-
-  $poster = $form['poster']['#value'];
-  $message = $form['message']['#value'];
-  $forum_id = variable_get('piwikProxyForumId');
-
-//*   
-  // Соединяемся с сервером MySQL
-  $connect = @mysql_connect(variable_get('piwikProxyDbHost'), variable_get('piwikProxyDbUser'), variable_get('piwikProxyDbPass'));
-  if (!$connect) {   // Проверяем создано ли соединение с сервером MySQL
-    return 0;
-  }
-  // Проверяем правильно выбрана ли база данных, существует ли она.
-  if (!@mysql_select_db(variable_get('piwikProxyDb'), $connect)) {
-    return 0;
-  }
-  mysql_query("SET NAMES utf8");
-
-  //  -------------------------- SELECT TOPIC -------------------                  
-  $result = mysql_query("SELECT id, forum_id FROM topics WHERE comments_nid='" . $nid . "'");
-  if (!$result) {   // Проверяем удачно ли выполнен запрос
-  }
-  $row = mysql_fetch_array($result); //дергаем строку
-  $topic = $row['id'];
-  $forum = $row['forum_id'];
-  //  -------------------------- /SELECT TOPIC -------------------  
-  $numberResultTopics = MYSQL_NUMROWS($result); //сколько топиков?
-  if ($numberResultTopics > 0) { //если результаты есть
-    //  -------------------------- POST---------------------                                              
-    //апдейтим posts
-    mysql_query("INSERT INTO posts (poster, poster_id, message, posted, topic_id) VALUES ( '$poster', '1', '$message', '$posted', '$topic')");
-    $last_post_id = mysql_insert_id(); //получаем последний id  в сессии
-    //запрос=выбрать num_replies и forum_id из таблицы topics где id=$topic
-    $result = mysql_query("SELECT num_replies, forum_id  FROM topics WHERE id='" . $topic . "'");
-    $row = mysql_fetch_array($result); //дергаем строку
-    $num_replies = $row['num_replies']; //извлекаем из массива результата количество ответов
-    $forum_id = $row['forum_id']; //извлекаем из массива результата id форума
-    $num_replies = ($num_replies + 1); //добавляем 1 ответ
-    //апдейтим topics
-    mysql_query("UPDATE topics SET last_post='" . $posted . "', last_poster='" . $poster . "', last_post_id='" . $last_post_id . "', num_replies='" . $num_replies . "' WHERE id=" . $topic . ";\r");
-    //запрос=выбрать num_posts из таблицы forums где id=$forum_id
-    $result = mysql_query("SELECT num_posts FROM forums WHERE id='" . $forum_id . "'");
-    $row = mysql_fetch_array($result); //дергаем строку
-    $num_posts = $row['num_posts']; //извлекаем из массива результата количество постов
-    $num_posts = ($num_posts + 1); //добавляем 1 пост
-    //апдейтим forums
-    mysql_query("UPDATE forums SET last_post='" . $posted . "', last_post_id='" . $last_post_id . "', num_posts='" . $num_posts . "', last_poster='" . $poster . "' WHERE id=" . $forum_id . ";\r");
-
-    //  --------------------------/POST---------------------                                              
-  }
-  else {
-    //  -------------------------- POST NEW -------------------                                              
-    //апдейтим posts
-    mysql_query("INSERT INTO posts (poster, poster_id, message, posted) VALUES ( '$poster', '1', '$message', '$posted')");
-    $last_post_id = mysql_insert_id(); //получаем последний инкрементный id  в сессии
-    //добавляем в topics
-    mysql_query("INSERT INTO topics (subject, posted, poster, last_poster, last_post_id, first_post_id, num_replies, last_post, forum_id, comments_nid) VALUES ('$subject', '$posted', '$poster', '$poster', '$last_post_id', '$last_post_id', '0', '$posted', '$forum_id', '$nid')");
-    $topic = mysql_insert_id(); //получаем последний инкрементный id в сессии
-    // № топика в таблицу posts
-    mysql_query("UPDATE posts SET topic_id='" . $topic . "' WHERE id=" . $last_post_id . ";\r");
-    $num_posts = 1; //добавляем 1 пост
-    $num_topics = $row['num_topics']; //извлекаем из массива результата количество постов
-    $num_topics = ($num_topics + 1); //добавляем 1 топик
-    //апдейтим forums
-    mysql_query("UPDATE forums SET last_post='" . $posted . "', last_post_id='" . $last_post_id . "', num_topics='" . $num_topics . "', num_posts='" . $num_posts . "', last_poster='" . $poster . "' WHERE id=" . $forum_id . ";\r");
-    //  -------------------------- //POST NEW -------------------                                              
-  }
-  mysql_close($connect);
 }
