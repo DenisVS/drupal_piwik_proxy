@@ -115,4 +115,4 @@ function piwik_proxy_form_submit($form, &$form_state) {
 }
 
 // Добавляем JS в head
-drupal_add_js(variable_get('piwikProxyCode'), array('type' => 'inline', 'scope' => 'header', 'weight' => 0));
+drupal_add_js(variable_get('piwikProxyCode'), array('type' => 'inline', 'scope' => 'footer', 'weight' => 0));
