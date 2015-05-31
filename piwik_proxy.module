@@ -65,7 +65,7 @@ function piwik_proxy_form($form, &$form_state) {
   $library = DRUPAL_ROOT.'/sites/all/libraries/piwik-tracker-proxy/piwik.php';
   if (!file_exists($library)) {
     drupal_set_message('Download ​<a href ="https://github.com/piwik/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/piwik/tracker-proxy/master/piwik.php">direct file only</a>.');
-    drupal_set_message('Place pivik.php into a new folder in the following location:<br />');
+    drupal_set_message('Place piwik.php into a new folder in the following location:<br />');
     drupal_set_message('sites/all/libraries/piwik-tracker-proxy<br />');
     drupal_set_message('So the actual library can be found at:<br />');
     drupal_set_message('sites/all/libraries/piwik-tracker-proxy/piwik.php<br />');
