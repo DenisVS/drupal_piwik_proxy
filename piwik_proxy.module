@@ -99,8 +99,8 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
   $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
-  $htmlContent  = '<script type="text/javascript">' . "\n";
-  $htmlContent .= "\n	".'var _paq = _paq || [];' . "\n";
+  //$htmlContent = '<script type="text/javascript">' . "\n";
+  $htmlContent  = "\n	".'var _paq = _paq || [];' . "\n";
   $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
   $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
   $htmlContent .= '  (function() {' . "\n";
@@ -110,30 +110,9 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $htmlContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
   $htmlContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
   $htmlContent .= '  })();' . "\n";
-  $htmlContent .= '</script>' . "\n";
+  //$htmlContent .= '</script>' . "\n";
   variable_set('piwikProxyCode', $htmlContent);
 }
 
-/**
- * Функция настройки блока
- * Implements hook_block_info().
- */
-function piwik_proxy_block_info() {
-  $blocks['piwik_proxy'] = array(	//определяет, какой URL настроек блока.
-    'info' => t('Piwik proxy code'), //название блока в admin/structure/blocks
-    'cache' => DRUPAL_CACHE_GLOBAL, //Режим кэша
-      //   'cache' => DRUPAL_NO_CACHE, //Режим кэша
-  );
-  return $blocks;
-}
-
-/**
- * Функция отображения блока
- * @return array Содержимое блока
- */
-function piwik_proxy_block_view() {
-  $block = array();
-  //$block['subject'] = t('Piwik Proxy code'); //Заголовок блока
-  $block['content'] = variable_get('piwikProxyCode');
-  return $block;
-}
+// Добавляем JS в head
+drupal_add_js(variable_get('piwikProxyCode'), array('type' => 'inline', 'scope' => 'header', 'weight' => 0));
