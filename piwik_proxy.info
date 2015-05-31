@@ -2,6 +2,5 @@
 name = Piwik proxy module
 description = This script allows to track websites with Piwik without revealing the Piwik server URL.
 core = 7.x
-configure = admin/config/system/piwik_proxy
+configure = admin/config/services/piwik_proxy
 files[] = piwik_proxy.module
-dependencies[] = ajaxblocks
