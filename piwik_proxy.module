@@ -99,8 +99,8 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
   $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
-  $htmlContent = '<script type="text/javascript">' . "\n";
-  $htmlContent .= 'var _paq = _paq || [];' . "\n";
+  $htmlContent  = '<script type="text/javascript">' . "\n";
+  $htmlContent .= "\n	".'var _paq = _paq || [];' . "\n";
   $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
   $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
   $htmlContent .= '  (function() {' . "\n";
@@ -119,7 +119,7 @@ function piwik_proxy_form_submit($form, &$form_state) {
  * Implements hook_block_info().
  */
 function piwik_proxy_block_info() {
-  $blocks['commentsView'] = array(
+  $blocks['piwik_proxy'] = array(	//определяет, какой URL настроек блока.
     'info' => t('Piwik proxy code'), //название блока в admin/structure/blocks
     'cache' => DRUPAL_CACHE_GLOBAL, //Режим кэша
       //   'cache' => DRUPAL_NO_CACHE, //Режим кэша
