@@ -77,13 +77,14 @@ function piwik_proxy_form_submit($form, &$form_state) {
 
   $file = DRUPAL_ROOT . '/sites/all/libraries/piwik/config.php';
   $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
+  fwrite($targetFile, "<?php\n"); //выводим в файл
   fwrite($targetFile, "\$PIWIK_URL = '" . variable_get('piwikUrl') . "';\n"); //выводим в файл
   fwrite($targetFile, "\$TOKEN_AUTH = '" . variable_get('piwikProxyTokenAuth') . "';\n"); //выводим в файл
-  fwrite($targetFile, '$timeout = 5,' . "\n"); //выводим в файл
+  fwrite($targetFile, '$timeout = 5' . ";\n"); //выводим в файл
   fclose($targetFile); //закрываем
   //Получаем из настроек переменные
   $siteID = variable_get('piwikProxySiteID');
-  $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik/piwik.php';
+  $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik/';
   $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
   $htmlContent = '<script type="text/javascript">' . "\n";
