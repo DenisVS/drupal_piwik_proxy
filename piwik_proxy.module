@@ -66,11 +66,40 @@ function piwik_proxy_form($form, &$form_state) {
       '#default_value' => variable_get('piwikProxyTokenAuth'),
       '#description' => t('In your Piwik server:<br />&#8226;login as Super user<br />&#8226;create a user, set the login for example: "UserTrackingAPI"<br />&#8226;assign this user admin permission on all websites you wish to track<br />&#8226;copy the <strong>token_auth</strong> for this user: you will use it later'),
     );
+
+    $form['piwikProxyHidePath'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Hide path to file',
+      '#default_value' => variable_get('piwikProxyHidePath', FALSE),
+      '#description' => t('Hide path to piwik.php file from AdBlock. <strong> Note!</strong> You want to edit the configuration files of the server.'),
+//'#checked' => TRUE,
+    );
+
+    $form['piwikProxyFalsePath'] = array(
+      '#type' => 'textfield',
+      '#title' => t('False path'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#description' => t('False path to piwik.php, e.g. somedir/somefile.php'),
+      '#default_value' => variable_get('piwikProxyFalsePath'),
+      '#states' => array(
+        'visible' => array(
+          'input[name="piwikProxyHidePath"]' => array('checked' => TRUE)
+        )
+      ),
+    );
+
     $form['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Save settings'),
         //'#submit' => TRUE,
     );
+  }
+
+  @$piwikProxyCode = variable_get('piwikProxyCode');
+  //Если есть готовый код, выводим JS helper
+  if (isset($piwikProxyCode)) {
+    $form['#suffix'] = '<strong>JS Helper</strong><br />Use this code for third-party engines, such as forums, Wiki, raw html, etc.'.'<div style="repeat scroll 0 0; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px black;  "><pre><code>' . '&lt;script type="text/javascript"&gt;' . "\n" . variable_get('piwikProxyCode') . "\n&lt;/script&gt;" . '</code></pre></div>'.'<span style="color:red">Do not</span> insert this code in Your Drupal site!';
   }
   return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
 }
@@ -86,6 +115,9 @@ function piwik_proxy_form_submit($form, &$form_state) {
   variable_set('piwikProxyTokenAuth', $form['piwikProxyTokenAuth']['#value']);
   variable_set('piwikUrl', $form['piwikUrl']['#value']);
 
+
+
+
   $file = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/config.php';
   $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
   fwrite($targetFile, "<?php\n"); //выводим в файл
@@ -98,7 +130,7 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
   $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
-  $htmlContent = "\n	" . 'var _paq = _paq || [];' . "\n";
+  $htmlContent  = 'var _paq = _paq || [];' . "\n";
   $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
   $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
   $htmlContent .= '  (function() {' . "\n";
