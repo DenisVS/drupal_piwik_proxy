@@ -27,7 +27,7 @@ function piwik_proxy_menu() {
  * Admin form to configurable piwik_proxy
  */
 function piwik_proxy_form($form, &$form_state) {
-  // Check library.
+  // Check library file.
   $library = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/piwik.php';
   if (!file_exists($library)) {
     drupal_set_message('Download ​<a href ="https://github.com/piwik/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/piwik/tracker-proxy/master/piwik.php">file directly</a>.');
@@ -67,6 +67,29 @@ function piwik_proxy_form($form, &$form_state) {
       '#description' => t('In your Piwik server:<br />&#8226;login as Super user<br />&#8226;create a user, set the login for example: "UserTrackingAPI"<br />&#8226;assign this user admin permission on all websites you wish to track<br />&#8226;copy the <strong>token_auth</strong> for this user: you will use it later'),
     );
 
+//чекбокс подменять URL или нет
+    $form['piwikProxyHidePath'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Hide path to file',
+      '#default_value' => variable_get('piwikProxyHidePath', FALSE),
+      '#description' => t('Hide path to piwik.php file from AdBlock. <strong> Note!</strong> You want to edit the configuration files of the server.'),
+    );
+    // поле появляется только в случае TRUE в предыдущем
+    $form['piwikProxyFalsePath'] = array(
+      '#type' => 'textfield',
+      '#title' => t('False path'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#description' => t('False path to piwik.php, e.g. somedir/somefile.php'),
+      '#default_value' => variable_get('piwikProxyFalsePath'),
+      '#states' => array(
+        'visible' => array(
+          'input[name="piwikProxyHidePath"]' => array('checked' => TRUE)
+        )
+      ),
+    );
+
+
     $form['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Save settings'),
@@ -89,12 +112,12 @@ function piwik_proxy_form($form, &$form_state) {
  * @param array $form_state
  */
 function piwik_proxy_form_submit($form, &$form_state) {
+  // Сабмитим переменные из полей
   variable_set('piwikProxySiteID', $form['piwikProxySiteID']['#value']);
   variable_set('piwikProxyTokenAuth', $form['piwikProxyTokenAuth']['#value']);
   variable_set('piwikUrl', $form['piwikUrl']['#value']);
-
-
-
+  variable_set('piwikProxyHidePath', $form['piwikProxyHidePath']['#value']);
+  variable_set('piwikProxyFalsePath', $form['piwikProxyFalsePath']['#value']);
 
   $file = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/config.php';
   $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
@@ -103,22 +126,46 @@ function piwik_proxy_form_submit($form, &$form_state) {
   fwrite($targetFile, "\$TOKEN_AUTH = '" . variable_get('piwikProxyTokenAuth') . "';\n"); //выводим в файл
   fwrite($targetFile, '$timeout = 5' . ";\n"); //выводим в файл
   fclose($targetFile); //закрываем
-  //Получаем из настроек переменные
-  $siteID = variable_get('piwikProxySiteID');
-  $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
-  $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+//Если путь не подменяется
+  if (variable_get('piwikProxyHidePath') == FALSE) {
 
-  $htmlContent = 'var _paq = _paq || [];' . "\n";
-  $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
-  $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
-  $htmlContent .= '  (function() {' . "\n";
-  $htmlContent .= '   var u="//' . $proxyUrl . '";' . "\n";
-  $htmlContent .= "   _paq.push(['setTrackerUrl', u+'piwik.php']);" . "\n";
-  $htmlContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
-  $htmlContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
-  $htmlContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
-  $htmlContent .= '  })();' . "\n";
-  variable_set('piwikProxyCode', $htmlContent);
+    //Получаем из настроек переменные
+    $siteID = variable_get('piwikProxySiteID');
+    $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
+    $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+
+    $codeContent = 'var _paq = _paq || [];' . "\n";
+    $codeContent .= "  _paq.push(['trackPageView']);" . "\n";
+    $codeContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
+    $codeContent .= '  (function() {' . "\n";
+    $codeContent .= '   var u="//' . $proxyUrl . '";' . "\n";
+    $codeContent .= "   _paq.push(['setTrackerUrl', u+'piwik.php']);" . "\n";
+    $codeContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
+    $codeContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+    $codeContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
+    $codeContent .= '  })();';
+  }
+  else {
+
+    //Получаем из настроек переменные
+    $siteID = variable_get('piwikProxySiteID');
+    $falsePath = variable_get('piwikProxyFalsePath');
+    $proxyUrl = $GLOBALS['base_root'] . '/' . $falsePath;
+    $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+
+    $codeContent = 'var _paq = _paq || [];' . "\n";
+    $codeContent .= "  _paq.push(['trackPageView']);" . "\n";
+    $codeContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
+    $codeContent .= '  (function() {' . "\n";
+    $codeContent .= '   var u="//' . $proxyUrl . '";' . "\n";
+    $codeContent .= "   _paq.push(['setTrackerUrl', u]);" . "\n";
+    $codeContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
+    $codeContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+    $codeContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u; s.parentNode.insertBefore(g,s);" . "\n";
+    $codeContent .= '  })();';
+  }
+
+  variable_set('piwikProxyCode', $codeContent); //код в системную переменную
 }
 
 // Добавляем JS в footer
