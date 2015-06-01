@@ -27,53 +27,52 @@ function piwik_proxy_menu() {
  * Admin form to configurable piwik_proxy
  */
 function piwik_proxy_form($form, &$form_state) {
-  $form['piwikProxySiteID'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Piwik site ID'),
-    '#size' => 3,
-    '#maxlength' => 3,
-    '#required' => TRUE,
-    '#default_value' => variable_get('piwikProxySiteID'), //дёргаем системную переменную
-    '#description' => t("Go to Piwik > Settings > Websites > Show Javascript Tracking Code. In string _paq.push(['setSiteId', YOUR_SITE_ID_HERE]);"),
-  );
-
-  $form['piwikUrl'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Piwik URL'),
-    '#size' => 50,
-    '#maxlength' => 50,
-    '#required' => TRUE,
-    '#default_value' => variable_get('piwikUrl'),
-    '#description' => t('Should contain the URL to your Piwik server, e.g, http://mysite.com/piwik/'),
-  );
-
-  $form['piwikProxyTokenAuth'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Token auth'),
-    '#size' => 50,
-    '#maxlength' => 50,
-    '#required' => TRUE,
-    '#default_value' => variable_get('piwikProxyTokenAuth'),
-    '#description' => t('In your Piwik server:<br />&#8226;login as Super user<br />&#8226;create a user, set the login for example: "UserTrackingAPI"<br />&#8226;assign this user admin permission on all websites you wish to track<br />&#8226;copy the <strong>token_auth</strong> for this user: you will use it later'),
-  );
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save settings'),
-      //'#submit' => TRUE,
-  );
   // Check library.
-  $library = DRUPAL_ROOT.'/sites/all/libraries/piwik-tracker-proxy/piwik.php';
+  $library = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/piwik.php';
   if (!file_exists($library)) {
-    drupal_set_message('Download ​<a href ="https://github.com/piwik/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/piwik/tracker-proxy/master/piwik.php">direct file only</a>.');
+    drupal_set_message('Download ​<a href ="https://github.com/piwik/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/piwik/tracker-proxy/master/piwik.php">file directly</a>.');
     drupal_set_message('Place piwik.php into a new folder in the following location:<br />');
     drupal_set_message('sites/all/libraries/piwik-tracker-proxy<br />');
     drupal_set_message('So the actual library can be found at:<br />');
     drupal_set_message('sites/all/libraries/piwik-tracker-proxy/piwik.php<br />');
   }
+  else {
+    $form['piwikProxySiteID'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Piwik site ID'),
+      '#size' => 3,
+      '#maxlength' => 3,
+      '#required' => TRUE,
+      '#default_value' => variable_get('piwikProxySiteID'), //дёргаем системную переменную
+      '#description' => t("Go to Piwik &raquo; Settings &raquo; Websites &raquo; enter the appropriate site ID from the table of websites."),
+    );
 
-  //return system_settings_form($form);
+    $form['piwikUrl'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Piwik URL'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('piwikUrl'),
+      '#description' => t('Should contain the URL to your Piwik server, e.g, http://mysite.com/piwik/'),
+    );
+
+    $form['piwikProxyTokenAuth'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Token auth'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('piwikProxyTokenAuth'),
+      '#description' => t('In your Piwik server:<br />&#8226;login as Super user<br />&#8226;create a user, set the login for example: "UserTrackingAPI"<br />&#8226;assign this user admin permission on all websites you wish to track<br />&#8226;copy the <strong>token_auth</strong> for this user: you will use it later'),
+    );
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save settings'),
+        //'#submit' => TRUE,
+    );
+  }
   return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
-  //чтобы произошёл вызов piwik_proxy_form_submit($form, &$form_state)!
 }
 
 /**
@@ -99,8 +98,7 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
   $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
-  //$htmlContent = '<script type="text/javascript">' . "\n";
-  $htmlContent  = "\n	".'var _paq = _paq || [];' . "\n";
+  $htmlContent = "\n	" . 'var _paq = _paq || [];' . "\n";
   $htmlContent .= "  _paq.push(['trackPageView']);" . "\n";
   $htmlContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
   $htmlContent .= '  (function() {' . "\n";
@@ -110,9 +108,8 @@ function piwik_proxy_form_submit($form, &$form_state) {
   $htmlContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
   $htmlContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
   $htmlContent .= '  })();' . "\n";
-  //$htmlContent .= '</script>' . "\n";
   variable_set('piwikProxyCode', $htmlContent);
 }
 
-// Добавляем JS в head
+// Добавляем JS в footer
 drupal_add_js(variable_get('piwikProxyCode'), array('type' => 'inline', 'scope' => 'footer', 'weight' => 0));
