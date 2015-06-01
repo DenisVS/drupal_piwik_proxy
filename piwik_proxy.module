@@ -89,7 +89,6 @@ function piwik_proxy_form($form, &$form_state) {
       ),
     );
 
-
     $form['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Save settings'),
@@ -104,7 +103,7 @@ function piwik_proxy_form($form, &$form_state) {
     $form['#prefix'] = '<strong>Rewrite rule for NGINX</strong><br />Insert this code to the nginx config file after "location" directive inside braces of virtual host where Your Drupal site installation:' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . 'rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/piwik-tracker-proxy/piwik.php  last;' . '</code></pre></div>Sample:';
     $form['#prefix'] .= '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . "location / {\n" . '     rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/piwik-tracker-proxy/piwik.php  last;' . '</code></pre></div>';
   }
-  
+
   @$piwikProxyCode = variable_get('piwikProxyCode');
   //Если есть готовый код, выводим helper в суффиксе формы
   if (isset($piwikProxyCode)) {
