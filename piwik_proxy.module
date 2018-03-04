@@ -13,7 +13,7 @@
  */
 function piwik_proxy_menu() {
   $items['admin/config/services/piwik_proxy'] = array(//Адрес страницы администрирования
-    'title' => 'Piwik proxy', // Тайтл страницы
+    'title' => 'Matomo proxy', // page title
     'page callback' => 'drupal_get_form', //функция, отвечающая за вывод страницы
     'page arguments' => array('piwik_proxy_form'), // аргумент hook_form()
     'access arguments' => array('administer users'), // права доступа
@@ -28,15 +28,35 @@ function piwik_proxy_menu() {
  */
 function piwik_proxy_form($form, &$form_state) {
   // Check library file.
-  $library = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/piwik.php';
+  $library = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('piwikProxyLibPath', 'tracker-proxy-master').'/piwik.php';
   if (!file_exists($library)) {
-    drupal_set_message('Download ​<a href ="https://github.com/piwik/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/piwik/tracker-proxy/master/piwik.php">file directly</a>.');
-    drupal_set_message('Place piwik.php into a new folder in the following location:<br />');
-    drupal_set_message('sites/all/libraries/piwik-tracker-proxy<br />');
-    drupal_set_message('So the actual library can be found at:<br />');
-    drupal_set_message('sites/all/libraries/piwik-tracker-proxy/piwik.php<br />');
+    drupal_set_message('Download ​<a href ="https://github.com/matomo-org/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/matomo-org/tracker-proxy/master/piwik.php">file directly</a>.<br />Place piwik.php into a new folder in the following location:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('piwikProxyLibPath', 'tracker-proxy-master').'</code></pre></div><br />So the actual library can be found at:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('piwikProxyLibPath', 'tracker-proxy-master').'/piwik.php</code></pre></div>');
+
+
+    $form['piwikProxyLibPath'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Piwik URL'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('piwikProxyLibPath', 'tracker-proxy-master'),
+      '#description' => t('Should contain the directory of the tracker-proxy library, e.g, "tracker-proxy-master'),
+    );
+
+
+    $form['options']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Renew'),
+      '#submit' => array('piwik_proxy_form_renew'),
+    );
+
+
+    return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
+
   }
   else {
+
+
     $form['piwikProxySiteID'] = array(
       '#type' => 'textfield',
       '#title' => t('Piwik site ID'),
@@ -70,7 +90,7 @@ function piwik_proxy_form($form, &$form_state) {
 //чекбокс подменять URL или нет
     $form['piwikProxyHidePath'] = array(
       '#type' => 'checkbox',
-      '#title' => 'Hide path to file by substitution',
+      '#title' => 'Hide path to file',
       '#default_value' => variable_get('piwikProxyHidePath', FALSE),
       '#description' => t('Hide path to piwik.php file from AdBlock. <strong> Note!</strong> You want to edit the configuration files of Your web server.'),
     );
@@ -95,25 +115,36 @@ function piwik_proxy_form($form, &$form_state) {
         //'#submit' => TRUE,
     );
 
-    @$piwikProxyHidePath = variable_get('piwikProxyHidePath');
-    @$piwikProxyFalsePath = variable_get('piwikProxyFalsePath');
-    //если отмечен чекбокс ProxyHide и введена строка piwikProxyFalsePath
-    if (($piwikProxyHidePath == TRUE) && isset($piwikProxyFalsePath)) {
-      $form['#prefix'] = '<strong>Rewrite rule for NGINX</strong><br />Insert this code to the nginx config file after "location" directive inside braces of virtual host where Your Drupal site installation:' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . 'rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/piwik-tracker-proxy/piwik.php  last;' . '</code></pre></div>Sample:';
-      $form['#prefix'] .= '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . "location / {\n" . '     rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/piwik-tracker-proxy/piwik.php  last;' . '</code></pre></div>';
-      $form['#prefix'] .= 'Now you should flush nginx cache and restart nginx.';
-    }
 
-    @$piwikProxyCode = variable_get('piwikProxyCode');
-    //Если есть готовый код, выводим helper в суффиксе формы
-    if (isset($piwikProxyCode)) {
-      $form['#suffix'] = '<strong>Helper</strong><br />Use this code for third-party engines, such as forums, wiki, raw html, etc.' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . '&lt;script type="text/javascript"&gt;' . "\n" . variable_get('piwikProxyCode') . "\n&lt;/script&gt;" . '</code></pre></div><span style="color:red">Do not</span> insert this code in Your Drupal site!';
-    }
+  @$piwikProxyLibPath = variable_get('piwikProxyLibPath');
+  @$piwikProxyHidePath = variable_get('piwikProxyHidePath');
+  @$piwikProxyFalsePath = variable_get('piwikProxyFalsePath');
+  //если отмечен чекбокс ProxyHide и введена строка piwikProxyFalsePath
+  if (($piwikProxyHidePath == TRUE) && isset($piwikProxyFalsePath)) {
+    $form['#prefix'] = '<strong>Rewrite rule for NGINX</strong><br />Insert this code into the nginx config file after "location" directive inside braces of virtual host where Your Drupal site installation:' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . 'rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/'.$piwikProxyLibPath.'/piwik.php  last;' . '</code></pre></div>Sample:'.'<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . "location / {\n" . '     rewrite  ^/' . $piwikProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/'.$piwikProxyLibPath.'/piwik.php  last;' . '</code></pre></div>';
+    //$form['#prefix']['#states']['visible']['input[name="piwikProxyHidePath"]']['checked']=TRUE;
   }
 
-
+  @$piwikProxyCode = variable_get('piwikProxyCode');
+  //Если есть готовый код, выводим helper в суффиксе формы
+  if (isset($piwikProxyCode)) {
+    $form['#suffix'] = '<strong>Helper</strong><br />Press "Save settings" and use this code for third-party engines, such as forums, wiki, raw html, etc.' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . '&lt;script type="text/javascript"&gt;' . "\n" . variable_get('piwikProxyCode') . "\n&lt;/script&gt;" . '</code></pre></div><span style="color:red">Do not</span> insert this code into Your Drupal site!';
+  }
   return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
+  
+    }
 }
+
+
+function piwik_proxy_form_renew($form, &$form_state) {
+  //$form_state['rebuild'] = FALSE;
+  $form_state['rebuild'] = TRUE;
+  //variable_get('piwikProxyLibPath', 'tracker-proxy-master').
+  variable_set('piwikProxyLibPath', $form['piwikProxyLibPath']['#value']);
+}
+
+
+
 
 /**
  * Функция сабмита формы. Выполняется вычисление и занесение переменных помимо формы.
@@ -129,7 +160,7 @@ function piwik_proxy_form_submit($form, &$form_state) {
   variable_set('piwikProxyHidePath', $form['piwikProxyHidePath']['#value']);
   variable_set('piwikProxyFalsePath', $form['piwikProxyFalsePath']['#value']);
 
-  $file = DRUPAL_ROOT . '/sites/all/libraries/piwik-tracker-proxy/config.php';
+  $file = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('piwikProxyLibPath').'/config.php';
   $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
   fwrite($targetFile, "<?php\n"); //выводим в файл
   fwrite($targetFile, "\$PIWIK_URL = '" . variable_get('piwikUrl') . "';\n"); //выводим в файл
@@ -141,7 +172,7 @@ function piwik_proxy_form_submit($form, &$form_state) {
 
     //Получаем из настроек переменные
     $siteID = variable_get('piwikProxySiteID');
-    $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/piwik-tracker-proxy/';
+    $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/tracker-proxy-master/';
     $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
     $codeContent = 'var _paq = _paq || [];' . "\n";
@@ -163,15 +194,15 @@ function piwik_proxy_form_submit($form, &$form_state) {
     $proxyUrl = $GLOBALS['base_root'] . '/' . $falsePath;
     $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
 
-    $codeContent = 'var _paq = _paq || [];' . "\n";
+    $codeContent = '  var _paq = _paq || [];' . "\n";
     $codeContent .= "  _paq.push(['trackPageView']);" . "\n";
     $codeContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
     $codeContent .= '  (function() {' . "\n";
-    $codeContent .= '   var u="//' . $proxyUrl . '";' . "\n";
-    $codeContent .= "   _paq.push(['setTrackerUrl', u]);" . "\n";
-    $codeContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
-    $codeContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
-    $codeContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u; s.parentNode.insertBefore(g,s);" . "\n";
+    $codeContent .= '    var u="//' . $proxyUrl . '";' . "\n";
+    $codeContent .= "    _paq.push(['setTrackerUrl', u]);" . "\n";    
+    $codeContent .= "    _paq.push(['setSiteId', '" . $siteID . "']);" . "\n";
+    $codeContent .= "    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+    $codeContent .= "    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u; s.parentNode.insertBefore(g,s);" . "\n";
     $codeContent .= '  })();';
   }
 
