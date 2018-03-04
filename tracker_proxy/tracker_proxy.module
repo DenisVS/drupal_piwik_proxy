@@ -28,7 +28,7 @@ function tracker_proxy_menu() {
  */
 function tracker_proxy_form($form, &$form_state) {
   // Check library file.
-  $library = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'/piwik.php';
+  $library = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('trackerProxyLibPath').'/piwik.php';
   if (!file_exists($library)) {
     drupal_set_message('Download ​<a href ="https://github.com/matomo-org/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/matomo-org/tracker-proxy/master/piwik.php">file directly</a>.<br />Place piwik.php into a new folder in the following location:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'</code></pre></div><br />So the actual library can be found at:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'/piwik.php</code></pre></div>Then press "Renew" button.', 'warning');
 
