@@ -1,0 +1,212 @@
+<?php
+
+/**
+ * Страница настроек в админке, и блок для вывода формы
+ * @file
+ * Module file for Piwik proxy module
+ * @todo Облагородить код, написать комментарии.
+ * $Id: tracker_proxy.module 23 2018-03-04 05:17:30Z denis $
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function tracker_proxy_menu() {
+  $items['admin/config/services/tracker_proxy'] = array(//Адрес страницы администрирования
+    'title' => 'Tracker proxy', // page title
+    'page callback' => 'drupal_get_form', //функция, отвечающая за вывод страницы
+    'page arguments' => array('tracker_proxy_form'), // аргумент hook_form()
+    'access arguments' => array('administer users'), // права доступа
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_form().
+ * Admin form to configurable tracker_proxy
+ */
+function tracker_proxy_form($form, &$form_state) {
+  // Check library file.
+  $library = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'/piwik.php';
+  if (!file_exists($library)) {
+    drupal_set_message('Download ​<a href ="https://github.com/matomo-org/tracker-proxy/archive/master.zip">archive</a> or a <a href ="https://raw.githubusercontent.com/matomo-org/tracker-proxy/master/piwik.php">file directly</a>.<br />Place piwik.php into a new folder in the following location:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'</code></pre></div><br />So the actual library can be found at:<br /><div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>sites/all/libraries/'.variable_get('trackerProxyLibPath', 'tracker-proxy-master').'/piwik.php</code></pre></div>Then press "Renew" button.', 'warning');
+
+
+    $form['trackerProxyLibPath'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Tracker proxy library directory'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('trackerProxyLibPath', 'tracker-proxy-master'),
+      '#description' => t('Should contain the directory of the tracker-proxy library, e.g, "tracker-proxy-master'),
+    );
+
+
+    $form['options']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Renew'),
+      '#submit' => array('tracker_proxy_form_renew'),
+    );
+
+
+    return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
+
+  }
+  else {
+
+
+    $form['trackerProxySiteID'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Piwik site ID'),
+      '#size' => 3,
+      '#maxlength' => 3,
+      '#required' => TRUE,
+      '#default_value' => variable_get('trackerProxySiteID'), //дёргаем системную переменную
+      '#description' => t("Go to Piwik &raquo; Settings &raquo; Websites &raquo; enter the appropriate site ID from the table of websites."),
+    );
+
+    $form['trackerUrl'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Piwik URL'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('trackerUrl'),
+      '#description' => t('Should contain the URL to your Piwik server, e.g, http://mysite.com/piwik/'),
+    );
+
+    $form['trackerProxyTokenAuth'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Token auth'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#required' => TRUE,
+      '#default_value' => variable_get('trackerProxyTokenAuth'),
+      '#description' => t('In your Piwik server:<br />&#8226;login as Super user<br />&#8226;create a user, set the login for example: "UserTrackingAPI"<br />&#8226;assign this user admin permission on all websites you wish to track<br />&#8226;copy the <strong>token_auth</strong> for this user: you will use it later'),
+    );
+
+//чекбокс подменять URL или нет
+    $form['trackerProxyHidePath'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Hide path to file',
+      '#default_value' => variable_get('trackerProxyHidePath', FALSE),
+      '#description' => t('Hide path to piwik.php file from AdBlock. <strong> Note!</strong> You want to edit the configuration files of Your web server.'),
+    );
+    // поле появляется только в случае TRUE в предыдущем
+    $form['trackerProxyFalsePath'] = array(
+      '#type' => 'textfield',
+      '#title' => t('False path'),
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#description' => t('False path to piwik.php, e.g. somedir/somefile.php'),
+      '#default_value' => variable_get('trackerProxyFalsePath'),
+      '#states' => array(
+        'visible' => array(
+          'input[name="trackerProxyHidePath"]' => array('checked' => TRUE)
+        )
+      ),
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save settings'),
+        //'#submit' => TRUE,
+    );
+
+
+  @$trackerProxyLibPath = variable_get('trackerProxyLibPath');
+  @$trackerProxyHidePath = variable_get('trackerProxyHidePath');
+  @$trackerProxyFalsePath = variable_get('trackerProxyFalsePath');
+  //если отмечен чекбокс ProxyHide и введена строка trackerProxyFalsePath
+  if (($trackerProxyHidePath == TRUE) && isset($trackerProxyFalsePath)) {
+    $form['#prefix'] = '<strong>Rewrite rule for NGINX</strong><br />Insert this code into the nginx config file after "location" directive inside braces of virtual host where Your Drupal site installation:' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . 'rewrite  ^/' . $trackerProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/'.$trackerProxyLibPath.'/piwik.php  last;' . '</code></pre></div>Sample:'.'<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . "location / {\n" . '     rewrite  ^/' . $trackerProxyFalsePath . '  ' . $GLOBALS['base_path'] . 'sites/all/libraries/'.$trackerProxyLibPath.'/piwik.php  last;' . '</code></pre></div>';
+    //$form['#prefix']['#states']['visible']['input[name="trackerProxyHidePath"]']['checked']=TRUE;
+  }
+
+  @$trackerProxyCode = variable_get('trackerProxyCode');
+  //Если есть готовый код, выводим helper в суффиксе формы
+  if (isset($trackerProxyCode)) {
+    $form['#suffix'] = '<strong>Helper</strong><br />Press "Save settings" and use this code for third-party engines, such as forums, wiki, raw html, etc.' . '<div style="overflow: auto; display: block; color:#00FF00; background-color:#000000; position: relative; border: solid 1px #666666;  "><pre><code>' . '&lt;script type="text/javascript"&gt;' . "\n" . variable_get('trackerProxyCode') . "\n&lt;/script&gt;" . '</code></pre></div><span style="color:red">Do not</span> insert this code into Your Drupal site!';
+  }
+  return $form; //Важно! Отправлять всё, а не system_settings_form($form), 
+  
+    }
+}
+
+
+function tracker_proxy_form_renew($form, &$form_state) {
+  //$form_state['rebuild'] = FALSE;
+  $form_state['rebuild'] = TRUE;
+  //variable_get('trackerProxyLibPath', 'tracker-proxy-master').
+  variable_set('trackerProxyLibPath', $form['trackerProxyLibPath']['#value']);
+}
+
+/**
+ * Функция сабмита формы. Выполняется вычисление и занесение переменных помимо формы.
+ * Пишется конфигурационный файл.
+ * @param array $form
+ * @param array $form_state
+ */
+function tracker_proxy_form_submit($form, &$form_state) {
+  // Сабмитим переменные из полей
+  variable_set('trackerProxySiteID', $form['trackerProxySiteID']['#value']);
+  variable_set('trackerProxyTokenAuth', $form['trackerProxyTokenAuth']['#value']);
+  variable_set('trackerUrl', $form['trackerUrl']['#value']);
+  variable_set('trackerProxyHidePath', $form['trackerProxyHidePath']['#value']);
+  variable_set('trackerProxyFalsePath', $form['trackerProxyFalsePath']['#value']);
+
+  $file = DRUPAL_ROOT . '/sites/all/libraries/'.variable_get('trackerProxyLibPath').'/config.php';
+  $targetFile = fopen($file, 'w') or drupal_set_message("can't open file");
+  fwrite($targetFile, "<?php\n"); //выводим в файл
+  fwrite($targetFile, "\$PIWIK_URL = '" . variable_get('trackerUrl') . "';\n"); //выводим в файл
+  fwrite($targetFile, "\$TOKEN_AUTH = '" . variable_get('trackerProxyTokenAuth') . "';\n"); //выводим в файл
+  fwrite($targetFile, '$timeout = 5' . ";\n"); //выводим в файл
+  fclose($targetFile); //закрываем
+//Если путь не подменяется
+  if (variable_get('trackerProxyHidePath') == FALSE) {
+
+    //Получаем из настроек переменные
+    $siteID = variable_get('trackerProxySiteID');
+    $proxyUrl = $GLOBALS['base_url'] . '/sites/all/libraries/tracker-proxy-master/';
+    $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+
+    $codeContent = 'var _paq = _paq || [];' . "\n";
+    $codeContent .= "  _paq.push(['trackPageView']);" . "\n";
+    $codeContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
+    $codeContent .= '  (function() {' . "\n";
+    $codeContent .= '   var u="//' . $proxyUrl . '";' . "\n";
+    $codeContent .= "   _paq.push(['setTrackerUrl', u+'piwik.php']);" . "\n";
+    $codeContent .= "   _paq.push(['setSiteId', " . $siteID . ']);' . "\n";
+    $codeContent .= "   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+    $codeContent .= "   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.php'; s.parentNode.insertBefore(g,s);" . "\n";
+    $codeContent .= '  })();';
+  }
+  else {
+
+    //Получаем из настроек переменные
+    $siteID = variable_get('trackerProxySiteID');
+    $falsePath = variable_get('trackerProxyFalsePath');
+    $proxyUrl = $GLOBALS['base_root'] . '/' . $falsePath;
+    $proxyUrl = preg_replace('%(.*//)(.*)%', '$2', $proxyUrl);
+
+    $codeContent = '  var _paq = _paq || [];' . "\n";
+    $codeContent .= "  _paq.push(['trackPageView']);" . "\n";
+    $codeContent .= "  _paq.push(['enableLinkTracking']);" . "\n";
+    $codeContent .= '  (function() {' . "\n";
+    $codeContent .= '    var u="//' . $proxyUrl . '";' . "\n";
+    $codeContent .= "    _paq.push(['setTrackerUrl', u]);" . "\n";    
+    $codeContent .= "    _paq.push(['setSiteId', '" . $siteID . "']);" . "\n";
+    $codeContent .= "    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];" . "\n";
+    $codeContent .= "    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u; s.parentNode.insertBefore(g,s);" . "\n";
+    $codeContent .= '  })();';
+  }
+
+  variable_set('trackerProxyCode', $codeContent); //код в системную переменную
+}
+
+if (!path_is_admin(current_path())) {
+  // Добавляем JS в footer
+  drupal_add_js(variable_get('trackerProxyCode'), array('type' => 'inline', 'scope' => 'footer', 'weight' => 0));
+}

@@ -1,0 +1,7 @@
+; $Id: tracker_proxy.info 23 2018-03-04 05:17:30Z denis $
+name = Tracker proxy
+description = This script allows to track websites with Piwik / Matomo without revealing the server URL.
+core = 7.x
+configure = admin/config/services/tracker_proxy
+files[] = tracker_proxy.module
+version = 7.x-1.4
