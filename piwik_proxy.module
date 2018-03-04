@@ -143,9 +143,6 @@ function piwik_proxy_form_renew($form, &$form_state) {
   variable_set('piwikProxyLibPath', $form['piwikProxyLibPath']['#value']);
 }
 
-
-
-
 /**
  * Функция сабмита формы. Выполняется вычисление и занесение переменных помимо формы.
  * Пишется конфигурационный файл.

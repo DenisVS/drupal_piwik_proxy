@@ -4,4 +4,4 @@ description = This script allows to track websites with Piwik without revealing 
 core = 7.x
 configure = admin/config/services/piwik_proxy
 files[] = piwik_proxy.module
-version = 7.x-1.3
+version = 7.x-1.4
